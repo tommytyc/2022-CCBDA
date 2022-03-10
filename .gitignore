@@ -1,0 +1,4 @@
+CCBDA/
+HW1/data/audios/*.wav
+HW1/model/*.pkl
+HW1/result/*.csv
