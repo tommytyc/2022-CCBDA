@@ -26,7 +26,7 @@ class MusicDataset(Dataset):
     def __getitem__(self, idx):
         audio_path = self.get_audio_path(idx)
         signal, sr = torchaudio.load(audio_path)
-        signal = self.resample_if_necessary(signal, sr)
+        signal, sr = self.resample_if_necessary(signal, sr)
         signal = self.mix_down_if_necessary(signal)
         signal = self.cut_if_necessary(signal)
         signal = self.right_pad_if_necessary(signal)
@@ -58,7 +58,7 @@ class MusicDataset(Dataset):
         if sr != self.target_sample_rate:
             resampler = torchaudio.transforms.Resample(sr, self.target_sample_rate)
             signal = resampler(signal)
-        return signal
+        return signal, self.target_sample_rate
 
     def mix_down_if_necessary(self, signal):
         if signal.shape[0] > 1:
