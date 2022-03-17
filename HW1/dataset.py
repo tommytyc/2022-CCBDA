@@ -5,9 +5,12 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 
 class MusicDataset(Dataset):
-    def __init__(self, csv_file, audio_dir, target_sample_rate=44100, mode='train', transformation=True):
-        self.df = pd.read_csv(csv_file)
-        self.audio_dir = audio_dir
+    def __init__(self, csv_file, audio_dir, TA_test_filelist=None, target_sample_rate=44100, mode='train', transformation=True):
+        if mode == 'TA_test':
+            self.TA_test_filelist = TA_test_filelist
+        else:
+            self.df = pd.read_csv(csv_file)
+            self.audio_dir = audio_dir
         self.target_sample_rate = target_sample_rate
         self.num_samples = self.target_sample_rate * 5
         self.mode = mode
@@ -21,10 +24,16 @@ class MusicDataset(Dataset):
             )
 
     def __len__(self):
-        return len(self.df)
+        if self.mode == 'TA_test':
+            return len(self.TA_test_filelist)
+        else:
+            return len(self.df)
 
     def __getitem__(self, idx):
-        audio_path = self.get_audio_path(idx)
+        if self.mode == 'TA_test':
+            audio_path = self.TA_test_filelist[idx]
+        else:
+            audio_path = self.get_audio_path(idx)
         signal, sr = torchaudio.load(audio_path)
         signal, sr = self.resample_if_necessary(signal, sr)
         signal = self.mix_down_if_necessary(signal)
@@ -32,11 +41,13 @@ class MusicDataset(Dataset):
         signal = self.right_pad_if_necessary(signal)
         if self.transformation:
             signal = self.transform(signal)
-        if self.mode != 'test':
+        if self.mode == 'train':
             score = self.df.loc[idx]['score']
             return signal, score
-        else:
+        elif self.mode == 'test':
             return self.df.loc[idx]['track'], signal
+        else:
+            return self.TA_test_filelist[idx], signal
 
     def get_audio_path(self, idx):
         return self.audio_dir + self.df.loc[idx]['track']

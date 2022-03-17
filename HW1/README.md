@@ -22,5 +22,5 @@
     ```
 - Test the model
     ```bash
-    python3 test.py
+    python3 test.py --filename [list of audio file path to predict]
     ```
