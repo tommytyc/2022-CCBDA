@@ -50,8 +50,7 @@ class BYOL(nn.Module):
         super().__init__()
         self.moving_avg_decay = moving_avg_decay
         self.online_encoder = torchvision.models.resnet50(pretrained=False)
-        # self.online_encoder.fc = nn.Linear(self.online_encoder.fc.in_features, 512)
-        self.online_projector = MLP(1000, 1024, 512)
+        self.online_projector = MLP(1000, 4096, 512)
         self.ema = EMA(moving_avg_decay)
         self.online_predictor = MLP(512, 4096, 512)
         self.target_encoder = None
@@ -138,19 +137,23 @@ def train(args):
                 'proj': learner.online_projector.state_dict(),
                 'pred': learner.online_predictor.state_dict()
             }, 'BYOL_encoder.pt')
+
             learner.eval()
+
+            embedding = get_embedding(args)
+            embedding.astype(np.float32)
+            with open('310551062.npy', 'wb') as f:
+                np.save(f, embedding)
+
             acc = test(args)
             tepoch.set_postfix(acc=acc)
 
 def test(args):
-    # encoder = torchvision.models.resnet50(pretrained=False)
-    # encoder.fc = nn.Linear(encoder.fc.in_features, 512)
     encoder = BYOL()
-    encoder.online_encoder.load_state_dict(torch.load('BYOL_encoder.pt', map_location=DEVICE)['resnet'])
-    encoder.online_projector.load_state_dict(torch.load('BYOL_encoder.pt', map_location=DEVICE)['proj'])
-    encoder.online_predictor.load_state_dict(torch.load('BYOL_encoder.pt', map_location=DEVICE)['pred'])
-    # encoder.load_state_dict(torch.load('resnet_encoder.pt'))
-    encoder.to(DEVICE)
+    encoder.online_encoder.load_state_dict(torch.load('BYOL_encoder.pt', map_location='cpu')['resnet'])
+    encoder.online_projector.load_state_dict(torch.load('BYOL_encoder.pt', map_location='cpu')['proj'])
+    encoder.online_predictor.load_state_dict(torch.load('BYOL_encoder.pt', map_location='cpu')['pred'])
+    encoder.to('cpu')
     encoder.eval()
     test_dataset_list = [MRI_Dataset(os.path.join(args.test_imgdir, f'{i}/')) for i in range(4)]
     test_loader_list = [DataLoader(dataset, batch_size=1, shuffle=False) for dataset in test_dataset_list]
@@ -158,15 +161,35 @@ def test(args):
     for i, test_loader in enumerate(test_loader_list):
         classes.append(torch.ones(len(test_loader)) * i)
         for img1, _ in test_loader:
-            img1 = img1.to(DEVICE)
+            img1 = img1.to('cpu')
             embedding.append(encoder.inference(img1))
     embedding = torch.cat(embedding, dim=0)
     classes = torch.cat(classes, dim=0)
     acc = KNN(embedding, classes, batch_size=16)
-    print(f'Accuracy: {acc}')
-    # return acc
+    # print(f'Accuracy: {acc}')
+    return acc
+
+def get_embedding(args):
+    encoder = BYOL()
+    encoder.online_encoder.load_state_dict(torch.load('BYOL_encoder.pt', map_location='cpu')['resnet'])
+    encoder.online_projector.load_state_dict(torch.load('BYOL_encoder.pt', map_location='cpu')['proj'])
+    encoder.online_predictor.load_state_dict(torch.load('BYOL_encoder.pt', map_location='cpu')['pred'])
+    encoder.to('cpu')
+    encoder.eval()
+    dataset = MRI_Dataset(args.train_imgdir)
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
+    embedding = []
+    for img1, _ in dataloader:
+        img1 = img1.to('cpu')
+        embedding.append(encoder.inference(img1))
+    embedding = torch.cat(embedding, dim=0).detach().numpy()
+    return embedding
 
 if __name__ == "__main__":
     args = set_arg()
-    # train(args)
-    test(args)
+    train(args)
+    # test(args)
+    # embedding = get_embedding(args)
+    # embedding.astype(np.float32)
+    # with open('310551062.npy', 'wb') as f:
+    #     np.save(f, embedding)
