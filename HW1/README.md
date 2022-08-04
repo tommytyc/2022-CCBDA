@@ -2,6 +2,12 @@
 - student id: 310551062
 - name: 唐宇謙
 
+## Intro
+- [kaggle link](https://www.kaggle.com/competitions/music-regression)
+- HW1 is from a kaggle competition about music memorability prediction. Given a piece of music signal(about 5 seconds), we need to predict the memorability score.
+- My model ranked **sixth** out of 45 in the public leaderboard.
+- Due to the data distribution being quite imbalance between public and private leaderboard, TA didn't take the private one into consideration when they were grading the HW1.
+
 ## Model architecture
 - Audio data preprocessing
     - Refer to `dataset.py`
